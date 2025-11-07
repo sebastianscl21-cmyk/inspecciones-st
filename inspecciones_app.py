@@ -30,12 +30,15 @@ st.subheader("Registrar nuevo hallazgo")
 option = st.radio("¿Cómo deseas agregar la foto?", ["📸 Cámara", "📁 Cargar archivo"])
 
 if option == "📸 Cámara":
-    image_file = st.camera_input("Tomar foto")
+    image_file = st.camera_input("Tomar foto", key="image_input")
 else:
-    image_file = st.file_uploader("Seleccionar imagen", type=["jpg", "jpeg", "png"])
-
+    image_file = st.file_uploader("Seleccionar imagen",
+                                  type=["jpg", "jpeg", "png"],
+                                  key="image_input")
 # Descripción del hallazgo
-description = st.text_area("✍️ Descripción del hallazgo")
+description = st.text_area("✍️ Descripción del hallazgo",
+                           key="description_input")
+
 
 if st.button("✅ Guardar hallazgo"):
     if image_file and description.strip():
@@ -159,5 +162,6 @@ if st.session_state.findings and machine_id.strip():
             )
 else:
     st.info("Completa los datos y registra hallazgos para generar el PDF.")
+
 
 
