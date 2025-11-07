@@ -78,41 +78,70 @@ st.divider()
 # 📄 Función para generar PDF
 def generate_pdf():
     pdf = FPDF()
-    pdf.set_auto_page_break(auto=True, margin=10)
+    pdf.set_auto_page_break(auto=True, margin=12)
 
-    # Portada
+    # 🏷️ Portada
     pdf.add_page()
-    pdf.set_font("Arial", "B", 16)
+    pdf.set_font("Arial", "B", 18)
     pdf.cell(0, 10, "INFORME DE INSPECCIÓN", ln=True, align="C")
+    pdf.ln(6)
 
-    pdf.ln(10)
     pdf.set_font("Arial", size=12)
-    pdf.cell(0, 10, f"Tipo de inspección: {inspection_type}", ln=True)
-    pdf.cell(0, 10, f"Máquina: {machine_id}", ln=True)
-    pdf.cell(0, 10, f"Fecha: {datetime.now().strftime('%Y-%m-%d %H:%M')}", ln=True)
 
-    # Agregar hallazgos al PDF
+    # Información de la inspección
+    data = [
+        ("Tipo de inspección:", inspection_type),
+        ("Máquina:", machine_id),
+        ("Fecha:", datetime.now().strftime('%Y-%m-%d %H:%M')),
+        ("Total de hallazgos:", str(len(st.session_state.findings)))
+    ]
+
+    for label, value in data:
+        pdf.set_font("Arial", "B", 12)
+        pdf.cell(50, 8, label, border=0)
+        pdf.set_font("Arial", "", 12)
+        pdf.cell(0, 8, value, ln=True, border=0)
+
+    # Línea divisoria
+    pdf.ln(6)
+    pdf.set_draw_color(0, 0, 0)
+    pdf.set_line_width(0.5)
+    pdf.line(10, pdf.get_y(), 200, pdf.get_y())
+    pdf.ln(5)
+
+    # 📌 Sección de Hallazgos
     for idx, f in enumerate(st.session_state.findings, start=1):
-        pdf.add_page()
         pdf.set_font("Arial", "B", 14)
+        pdf.ln(6)
         pdf.cell(0, 10, f"Hallazgo {idx}", ln=True)
 
-        # Guardar imagen temporal
+        # Imagen con tamaño máximo calculado
+        max_width = 180
+        width, height = f["image"].size
+        ratio = max_width / float(width)
+        new_height = int(height * ratio)
+
         with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as tmp:
-            path = tmp.name
-            f["image"].save(path)
+            img_path = tmp.name
+            f["image"].save(img_path)
+
+        pdf.image(img_path, w=max_width, h=new_height)
+        os.remove(img_path)
 
         pdf.ln(5)
-        pdf.image(path, w=160)
-        os.remove(path)
+        pdf.set_font("Arial", "", 11)
+        pdf.multi_cell(0, 6, f["description"])
 
-        pdf.ln(5)
-        pdf.set_font("Arial", size=12)
-        pdf.multi_cell(0, 8, f["description"])
+        # Línea separadora entre hallazgos
+        pdf.ln(2)
+        pdf.set_draw_color(150, 150, 150)
+        pdf.line(10, pdf.get_y(), 200, pdf.get_y())
+        pdf.ln(4)
 
     file_unique = f"Reporte_Inspeccion_{uuid.uuid4().hex[:6]}.pdf"
     pdf.output(file_unique)
     return file_unique
+
 
 # Botón para generar PDF
 if st.session_state.findings and machine_id.strip():
@@ -127,3 +156,4 @@ if st.session_state.findings and machine_id.strip():
             )
 else:
     st.info("Completa los datos y registra hallazgos para generar el PDF.")
+
