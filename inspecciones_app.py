@@ -39,20 +39,23 @@ description = st.text_area("✍️ Descripción del hallazgo")
 
 if st.button("✅ Guardar hallazgo"):
     if image_file and description.strip():
-        try:
-            image = Image.open(image_file)
-            st.session_state.findings.append({
-                "id": str(uuid.uuid4()),
-                "image": image.copy(),
-                "description": description,
-                "timestamp": datetime.now()
-            })
-            st.success("Hallazgo guardado ✅")
-            st.rerun()
-        except Exception as e:
-            st.error(f"Error al procesar la imagen: {e}")
+        image = Image.open(image_file)
+
+        st.session_state.findings.append({
+            "image": image,
+            "description": description,
+            "timestamp": datetime.now()
+        })
+
+        # ✅ Limpiar campos de entrada
+        st.session_state["image_input"] = None
+        st.session_state["description_input"] = ""
+
+        st.success("Hallazgo guardado ✅")
+        st.rerun()
     else:
         st.warning("⚠️ Debes tomar o subir una imagen y escribir una descripción.")
+
 
 st.divider()
 
@@ -156,4 +159,5 @@ if st.session_state.findings and machine_id.strip():
             )
 else:
     st.info("Completa los datos y registra hallazgos para generar el PDF.")
+
 
