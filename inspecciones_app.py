@@ -30,35 +30,29 @@ st.subheader("Registrar nuevo hallazgo")
 option = st.radio("¿Cómo deseas agregar la foto?", ["📸 Cámara", "📁 Cargar archivo"])
 
 if option == "📸 Cámara":
-    image_file = st.camera_input("Tomar foto", key="image_input")
+    image_file = st.camera_input("Tomar foto")
 else:
-    image_file = st.file_uploader("Seleccionar imagen",
-                                  type=["jpg", "jpeg", "png"],
-                                  key="image_input")
-# Descripción del hallazgo
-description = st.text_area("✍️ Descripción del hallazgo",
-                           key="description_input")
+    image_file = st.file_uploader("Seleccionar imagen", type=["jpg", "jpeg", "png"])
 
+# Descripción del hallazgo
+description = st.text_area("✍️ Descripción del hallazgo")
 
 if st.button("✅ Guardar hallazgo"):
     if image_file and description.strip():
-        image = Image.open(image_file)
-
-        st.session_state.findings.append({
-            "image": image,
-            "description": description,
-            "timestamp": datetime.now()
-        })
-
-        # ✅ Limpiar campos de entrada
-        st.session_state["image_input"] = None
-        st.session_state["description_input"] = ""
-
-        st.success("Hallazgo guardado ✅")
-        st.rerun()
+        try:
+            image = Image.open(image_file)
+            st.session_state.findings.append({
+                "id": str(uuid.uuid4()),
+                "image": image.copy(),
+                "description": description,
+                "timestamp": datetime.now()
+            })
+            st.success("Hallazgo guardado ✅")
+            st.rerun()
+        except Exception as e:
+            st.error(f"Error al procesar la imagen: {e}")
     else:
         st.warning("⚠️ Debes tomar o subir una imagen y escribir una descripción.")
-
 
 st.divider()
 
@@ -85,69 +79,65 @@ st.divider()
 def generate_pdf():
     pdf = FPDF()
     pdf.set_auto_page_break(auto=True, margin=12)
-
-    # 🏷️ Portada
     pdf.add_page()
+
+    # --------- ENCABEZADO ----------
     pdf.set_font("Arial", "B", 18)
     pdf.cell(0, 10, "INFORME DE INSPECCIÓN", ln=True, align="C")
-    pdf.ln(6)
+    pdf.ln(4)
 
     pdf.set_font("Arial", size=12)
-
-    # Información de la inspección
-    data = [
-        ("Tipo de inspección:", inspection_type),
-        ("Máquina:", machine_id),
-        ("Fecha:", datetime.now().strftime('%Y-%m-%d %H:%M')),
-        ("Total de hallazgos:", str(len(st.session_state.findings)))
-    ]
-
-    for label, value in data:
-        pdf.set_font("Arial", "B", 12)
-        pdf.cell(50, 8, label, border=0)
-        pdf.set_font("Arial", "", 12)
-        pdf.cell(0, 8, value, ln=True, border=0)
-
-    # Línea divisoria
+    pdf.cell(0, 8, f"MAQUINA: {machine_id}", ln=True)
+    pdf.cell(0, 8, f"FECHA: {datetime.now().strftime('%A %d de %B del %Y')}", ln=True)
     pdf.ln(6)
-    pdf.set_draw_color(0, 0, 0)
-    pdf.set_line_width(0.5)
-    pdf.line(10, pdf.get_y(), 200, pdf.get_y())
-    pdf.ln(5)
 
-    # 📌 Sección de Hallazgos
-    for idx, f in enumerate(st.session_state.findings, start=1):
-        pdf.set_font("Arial", "B", 14)
-        pdf.ln(6)
-        pdf.cell(0, 10, f"Hallazgo {idx}", ln=True)
+    # --------- GRID CONFIG ----------
+    images_per_row = 3
+    cell_width = 60       # ancho por hallazgo
+    image_max_width = 55  # ancho máximo de la imagen
+    spacing = 8
 
-        # Imagen con tamaño máximo calculado
-        max_width = 180
-        width, height = f["image"].size
-        ratio = max_width / float(width)
-        new_height = int(height * ratio)
+    x_start = 10
+    y_start = pdf.get_y()
+    x = x_start
+    y = y_start
 
+    pdf.set_font("Arial", "", 10)
+
+    for idx, f in enumerate(st.session_state.findings):
+
+        # --- Imprimir descripción arriba de la imagen ---
+        pdf.set_xy(x, y)
+        pdf.multi_cell(cell_width, 5, f["description"], align="L")
+
+        # Preparar imagen temporal
         with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as tmp:
             img_path = tmp.name
             f["image"].save(img_path)
 
-        pdf.image(img_path, w=max_width, h=new_height)
+        # — Calcular tamaño proporcional —
+        width, height = f["image"].size
+        ratio = image_max_width / float(width)
+        new_height = int(height * ratio)
+
+        # Posicionar imagen debajo del texto
+        pdf.set_xy(x, pdf.get_y())
+        pdf.image(img_path, w=image_max_width, h=new_height)
+
         os.remove(img_path)
 
-        pdf.ln(5)
-        pdf.set_font("Arial", "", 11)
-        pdf.multi_cell(0, 6, f["description"])
+        # Mover posición al siguiente bloque
+        x += cell_width + spacing
 
-        # Línea separadora entre hallazgos
-        pdf.ln(2)
-        pdf.set_draw_color(150, 150, 150)
-        pdf.line(10, pdf.get_y(), 200, pdf.get_y())
-        pdf.ln(4)
+        # Si ya imprimió 3 imágenes, saltar de fila
+        if (idx + 1) % images_per_row == 0:
+            x = x_start
+            y = pdf.get_y() + new_height + 10
+            pdf.set_y(y)
 
     file_unique = f"Reporte_Inspeccion_{uuid.uuid4().hex[:6]}.pdf"
     pdf.output(file_unique)
     return file_unique
-
 
 # Botón para generar PDF
 if st.session_state.findings and machine_id.strip():
@@ -162,6 +152,3 @@ if st.session_state.findings and machine_id.strip():
             )
 else:
     st.info("Completa los datos y registra hallazgos para generar el PDF.")
-
-
-
