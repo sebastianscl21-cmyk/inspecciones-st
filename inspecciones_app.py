@@ -6,7 +6,7 @@ import os
 import tempfile
 import uuid
 import locale
-llocale.setlocale(locale.LC_TIME, "es_CO.UTF-8")
+locale.setlocale(locale.LC_TIME, "es_CO.UTF-8")
 
 # Configuración de la página
 st.set_page_config(page_title="Inspecciones Técnicas", page_icon="🛠️", layout="centered")
@@ -154,5 +154,6 @@ if st.session_state.findings and machine_id.strip():
             )
 else:
     st.info("Completa los datos y registra hallazgos para generar el PDF.")
+
 
 
