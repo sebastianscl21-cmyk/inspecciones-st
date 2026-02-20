@@ -1,0 +1,765 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#2563eb">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>Inspecciones Técnicas</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- PDF Generation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    
+    <!-- Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        
+        * {
+            font-family: 'Inter', sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding-bottom: env(safe-area-inset-bottom);
+        }
+        
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .ios-card {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            transition: all 0.3s ease;
+            transform: scale(1);
+        }
+        
+        .btn-primary:active {
+            transform: scale(0.98);
+        }
+        
+        .btn-danger {
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%);
+        }
+        
+        .finding-card {
+            animation: slideIn 0.3s ease-out;
+            transition: all 0.2s ease;
+        }
+        
+        .finding-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+        }
+        
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .camera-preview {
+            aspect-ratio: 4/3;
+            object-fit: cover;
+            border-radius: 16px;
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 10px;
+        }
+        
+        .loading-spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background: #333;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 50px;
+            font-size: 14px;
+            z-index: 1000;
+            opacity: 0;
+            transition: all 0.3s ease;
+        }
+        
+        .toast.show {
+            transform: translateX(-50%) translateY(0);
+            opacity: 1;
+        }
+        
+        .empty-state {
+            opacity: 0.6;
+            text-align: center;
+            padding: 40px 20px;
+        }
+        
+        @media (max-width: 640px) {
+            .container-padding {
+                padding: 16px;
+            }
+            .ios-card {
+                border-radius: 16px;
+            }
+        }
+    </style>
+</head>
+<body class="antialiased">
+    <div id="app" class="min-h-screen">
+        <!-- Header -->
+        <header class="glass-panel sticky top-0 z-50 px-4 py-4 shadow-lg">
+            <div class="max-w-2xl mx-auto flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center text-white text-xl">
+                        <i class="fas fa-clipboard-check"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-lg font-bold text-gray-800 leading-tight">Inspecciones Técnicas</h1>
+                        <p class="text-xs text-gray-600">Registro de Hallazgos</p>
+                    </div>
+                </div>
+                <button onclick="clearAll()" class="text-gray-500 hover:text-red-500 transition-colors p-2" title="Limpiar todo">
+                    <i class="fas fa-trash-alt text-lg"></i>
+                </button>
+            </div>
+        </header>
+
+        <main class="container-padding max-w-2xl mx-auto space-y-4 pt-4 pb-24">
+            
+            <!-- Form Section -->
+            <section class="ios-card p-5 space-y-4">
+                <!-- Inspection Type -->
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">
+                        <i class="fas fa-tools mr-2 text-blue-500"></i>Tipo de Inspección
+                    </label>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button onclick="setInspectionType('Mecánica')" id="btn-mecanica" 
+                                class="inspection-btn py-3 px-4 rounded-xl border-2 border-gray-200 text-gray-600 font-medium transition-all hover:border-blue-400">
+                            <i class="fas fa-cog mr-2"></i>Mecánica
+                        </button>
+                        <button onclick="setInspectionType('Eléctrica')" id="btn-electrica" 
+                                class="inspection-btn py-3 px-4 rounded-xl border-2 border-gray-200 text-gray-600 font-medium transition-all hover:border-blue-400">
+                            <i class="fas fa-bolt mr-2"></i>Eléctrica
+                        </button>
+                    </div>
+                    <input type="hidden" id="inspectionType" value="">
+                </div>
+
+                <!-- Machine ID -->
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">
+                        <i class="fas fa-barcode mr-2 text-blue-500"></i>Identificación de la Máquina
+                    </label>
+                    <input type="text" id="machineId" placeholder="Ej: MAQ-001, Torno CNC #3..." 
+                           class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-blue-500 focus:outline-none transition-colors text-gray-800 placeholder-gray-400">
+                </div>
+            </section>
+
+            <!-- New Finding Section -->
+            <section class="ios-card p-5 space-y-4">
+                <h2 class="text-lg font-bold text-gray-800 flex items-center">
+                    <i class="fas fa-plus-circle mr-2 text-green-500"></i>Registrar Hallazgo
+                </h2>
+
+                <!-- Image Source Selection -->
+                <div class="flex gap-2 p-1 bg-gray-100 rounded-xl">
+                    <button onclick="setImageSource('camera')" id="tab-camera" 
+                            class="flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-2">
+                        <i class="fas fa-camera"></i>Cámara
+                    </button>
+                    <button onclick="setImageSource('file')" id="tab-file" 
+                            class="flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-2">
+                        <i class="fas fa-folder-open"></i>Galería
+                    </button>
+                </div>
+
+                <!-- Camera Input -->
+                <div id="cameraSection" class="hidden">
+                    <div class="relative overflow-hidden rounded-2xl bg-black">
+                        <video id="cameraVideo" autoplay playsinline class="w-full camera-preview"></video>
+                        <canvas id="cameraCanvas" class="hidden"></canvas>
+                        <div id="cameraOverlay" class="absolute inset-0 flex items-center justify-center bg-black/50">
+                            <button onclick="startCamera()" class="bg-white text-gray-900 px-6 py-3 rounded-full font-semibold flex items-center gap-2 hover:bg-gray-100 transition-colors">
+                                <i class="fas fa-video"></i>Iniciar Cámara
+                            </button>
+                        </div>
+                        <button onclick="capturePhoto()" id="btnCapture" class="hidden absolute bottom-4 left-1/2 -translate-x-1/2 w-16 h-16 bg-white rounded-full border-4 border-gray-300 flex items-center justify-center shadow-lg active:scale-95 transition-transform">
+                            <div class="w-12 h-12 bg-red-500 rounded-full"></div>
+                        </button>
+                    </div>
+                    <img id="previewImage" class="hidden w-full rounded-2xl mt-3 camera-preview">
+                    <button onclick="retakePhoto()" id="btnRetake" class="hidden w-full mt-3 py-2 text-red-500 font-medium flex items-center justify-center gap-2">
+                        <i class="fas fa-redo"></i>Tomar otra foto
+                    </button>
+                </div>
+
+                <!-- File Input -->
+                <div id="fileSection" class="hidden">
+                    <label class="block w-full border-3 border-dashed border-gray-300 rounded-2xl p-8 text-center cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition-all group">
+                        <input type="file" id="fileInput" accept="image/*" class="hidden" onchange="handleFileSelect(event)">
+                        <i class="fas fa-cloud-upload-alt text-4xl text-gray-400 group-hover:text-blue-500 mb-3 transition-colors"></i>
+                        <p class="text-gray-600 font-medium">Toca para seleccionar imagen</p>
+                        <p class="text-xs text-gray-400 mt-1">JPG, PNG, WEBP</p>
+                    </label>
+                    <img id="filePreview" class="hidden w-full rounded-2xl mt-3 camera-preview">
+                    <button onclick="clearFile()" id="btnClearFile" class="hidden w-full mt-3 py-2 text-red-500 font-medium flex items-center justify-center gap-2">
+                        <i class="fas fa-times"></i>Eliminar imagen
+                    </button>
+                </div>
+
+                <!-- Description -->
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">
+                        <i class="fas fa-pen mr-2 text-blue-500"></i>Descripción del Hallazgo
+                    </label>
+                    <textarea id="description" rows="3" placeholder="Describe el problema encontrado..." 
+                              class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-blue-500 focus:outline-none transition-colors resize-none text-gray-800"></textarea>
+                </div>
+
+                <!-- Save Button -->
+                <button onclick="saveFinding()" id="btnSave" 
+                        class="btn-primary w-full py-4 rounded-xl text-white font-bold text-lg shadow-lg flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
+                    <i class="fas fa-check-circle"></i>
+                    <span>Guardar Hallazgo</span>
+                </button>
+            </section>
+
+            <!-- Findings List -->
+            <section class="ios-card p-5">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-lg font-bold text-gray-800 flex items-center">
+                        <i class="fas fa-list-ul mr-2 text-purple-500"></i>Hallazgos
+                        <span id="findingsCount" class="ml-2 bg-purple-100 text-purple-700 text-xs px-2 py-1 rounded-full">0</span>
+                    </h2>
+                </div>
+
+                <div id="findingsList" class="space-y-3 max-h-96 overflow-y-auto custom-scrollbar">
+                    <div class="empty-state">
+                        <i class="fas fa-clipboard-list text-5xl text-gray-300 mb-3"></i>
+                        <p class="text-gray-500">No hay hallazgos registrados</p>
+                        <p class="text-sm text-gray-400 mt-1">Los hallazgos aparecerán aquí</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- PDF Generation -->
+            <section class="ios-card p-5 bg-gradient-to-br from-gray-50 to-gray-100">
+                <button onclick="generatePDF()" id="btnPDF" 
+                        class="w-full py-4 rounded-xl bg-gray-800 text-white font-bold text-lg shadow-lg flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all hover:bg-gray-900">
+                    <i class="fas fa-file-pdf text-red-400"></i>
+                    <span>Generar PDF</span>
+                </button>
+                <p class="text-center text-xs text-gray-500 mt-2">
+                    <i class="fas fa-info-circle mr-1"></i>
+                    Requiere identificación de máquina y al menos un hallazgo
+                </p>
+            </section>
+        </main>
+
+        <!-- Toast Notification -->
+        <div id="toast" class="toast"></div>
+    </div>
+
+    <script>
+        // State Management
+        let findings = JSON.parse(localStorage.getItem('inspectionFindings')) || [];
+        let currentImage = null;
+        let currentStream = null;
+        let inspectionType = '';
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            renderFindings();
+            updatePDFButton();
+            
+            // Set default image source
+            setImageSource('camera');
+            
+            // Check for saved inspection type
+            const savedType = localStorage.getItem('inspectionType');
+            if (savedType) setInspectionType(savedType);
+            
+            // Check for saved machine ID
+            const savedMachine = localStorage.getItem('machineId');
+            if (savedMachine) document.getElementById('machineId').value = savedMachine;
+        });
+
+        // Inspection Type Selection
+        function setInspectionType(type) {
+            inspectionType = type;
+            document.getElementById('inspectionType').value = type;
+            localStorage.setItem('inspectionType', type);
+            
+            // Update UI
+            document.querySelectorAll('.inspection-btn').forEach(btn => {
+                btn.classList.remove('border-blue-500', 'bg-blue-50', 'text-blue-700');
+                btn.classList.add('border-gray-200', 'text-gray-600');
+            });
+            
+            const activeBtn = document.getElementById(`btn-${type.toLowerCase()}`);
+            activeBtn.classList.remove('border-gray-200', 'text-gray-600');
+            activeBtn.classList.add('border-blue-500', 'bg-blue-50', 'text-blue-700');
+        }
+
+        // Image Source Toggle
+        function setImageSource(source) {
+            const cameraSection = document.getElementById('cameraSection');
+            const fileSection = document.getElementById('fileSection');
+            const tabCamera = document.getElementById('tab-camera');
+            const tabFile = document.getElementById('tab-file');
+            
+            if (source === 'camera') {
+                cameraSection.classList.remove('hidden');
+                fileSection.classList.add('hidden');
+                tabCamera.classList.add('bg-white', 'shadow-sm', 'text-blue-600');
+                tabCamera.classList.remove('text-gray-600');
+                tabFile.classList.remove('bg-white', 'shadow-sm', 'text-blue-600');
+                tabFile.classList.add('text-gray-600');
+                stopCamera();
+            } else {
+                cameraSection.classList.add('hidden');
+                fileSection.classList.remove('hidden');
+                tabFile.classList.add('bg-white', 'shadow-sm', 'text-blue-600');
+                tabFile.classList.remove('text-gray-600');
+                tabCamera.classList.remove('bg-white', 'shadow-sm', 'text-blue-600');
+                tabCamera.classList.add('text-gray-600');
+                stopCamera();
+            }
+            currentImage = null;
+        }
+
+        // Camera Functions
+        async function startCamera() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { 
+                        facingMode: 'environment',
+                        width: { ideal: 1920 },
+                        height: { ideal: 1080 }
+                    } 
+                });
+                currentStream = stream;
+                const video = document.getElementById('cameraVideo');
+                video.srcObject = stream;
+                document.getElementById('cameraOverlay').classList.add('hidden');
+                document.getElementById('btnCapture').classList.remove('hidden');
+            } catch (err) {
+                showToast('Error al acceder a la cámara: ' + err.message, 'error');
+            }
+        }
+
+        function stopCamera() {
+            if (currentStream) {
+                currentStream.getTracks().forEach(track => track.stop());
+                currentStream = null;
+            }
+            document.getElementById('cameraOverlay').classList.remove('hidden');
+            document.getElementById('btnCapture').classList.add('hidden');
+            document.getElementById('previewImage').classList.add('hidden');
+            document.getElementById('btnRetake').classList.add('hidden');
+        }
+
+        function capturePhoto() {
+            const video = document.getElementById('cameraVideo');
+            const canvas = document.getElementById('cameraCanvas');
+            const ctx = canvas.getContext('2d');
+            
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            ctx.drawImage(video, 0, 0);
+            
+            currentImage = canvas.toDataURL('image/jpeg', 0.9);
+            
+            const preview = document.getElementById('previewImage');
+            preview.src = currentImage;
+            preview.classList.remove('hidden');
+            
+            stopCamera();
+            document.getElementById('btnRetake').classList.remove('hidden');
+            document.getElementById('cameraOverlay').classList.add('hidden');
+        }
+
+        function retakePhoto() {
+            currentImage = null;
+            document.getElementById('previewImage').classList.add('hidden');
+            document.getElementById('btnRetake').classList.add('hidden');
+            startCamera();
+        }
+
+        // File Handling
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            if (!file.type.startsWith('image/')) {
+                showToast('Por favor selecciona una imagen válida', 'error');
+                return;
+            }
+            
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                currentImage = e.target.result;
+                const preview = document.getElementById('filePreview');
+                preview.src = currentImage;
+                preview.classList.remove('hidden');
+                document.getElementById('btnClearFile').classList.remove('hidden');
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function clearFile() {
+            currentImage = null;
+            document.getElementById('fileInput').value = '';
+            document.getElementById('filePreview').classList.add('hidden');
+            document.getElementById('btnClearFile').classList.add('hidden');
+        }
+
+        // Save Finding
+        function saveFinding() {
+            const description = document.getElementById('description').value.trim();
+            
+            if (!currentImage) {
+                showToast('Debes tomar o seleccionar una imagen', 'error');
+                return;
+            }
+            
+            if (!description) {
+                showToast('Debes escribir una descripción', 'error');
+                return;
+            }
+            
+            const finding = {
+                id: Date.now().toString(),
+                image: currentImage,
+                description: description,
+                timestamp: new Date().toISOString()
+            };
+            
+            findings.push(finding);
+            saveToStorage();
+            renderFindings();
+            
+            // Reset form
+            document.getElementById('description').value = '';
+            if (document.getElementById('cameraSection').classList.contains('hidden')) {
+                clearFile();
+            } else {
+                retakePhoto();
+            }
+            
+            showToast('Hallazgo guardado correctamente', 'success');
+            updatePDFButton();
+        }
+
+        // Render Findings
+        function renderFindings() {
+            const container = document.getElementById('findingsList');
+            const count = document.getElementById('findingsCount');
+            
+            count.textContent = findings.length;
+            
+            if (findings.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <i class="fas fa-clipboard-list text-5xl text-gray-300 mb-3"></i>
+                        <p class="text-gray-500">No hay hallazgos registrados</p>
+                        <p class="text-sm text-gray-400 mt-1">Los hallazgos aparecerán aquí</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            container.innerHTML = findings.map(f => {
+                const date = new Date(f.timestamp);
+                const dateStr = date.toLocaleString('es-ES', { 
+                    day: '2-digit', 
+                    month: '2-digit', 
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+                
+                return `
+                    <div class="finding-card bg-white border border-gray-100 rounded-xl p-3 flex gap-3 shadow-sm">
+                        <img src="${f.image}" class="w-24 h-24 object-cover rounded-lg flex-shrink-0 bg-gray-100">
+                        <div class="flex-1 min-w-0">
+                            <p class="text-gray-800 text-sm font-medium line-clamp-3 mb-1">${escapeHtml(f.description)}</p>
+                            <p class="text-xs text-gray-400 flex items-center gap-1">
+                                <i class="far fa-clock"></i>${dateStr}
+                            </p>
+                        </div>
+                        <button onclick="deleteFinding('${f.id}')" class="flex-shrink-0 w-8 h-8 rounded-full bg-red-50 text-red-500 hover:bg-red-100 flex items-center justify-center transition-colors">
+                            <i class="fas fa-trash-alt text-sm"></i>
+                        </button>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function deleteFinding(id) {
+            if (!confirm('¿Eliminar este hallazgo?')) return;
+            findings = findings.filter(f => f.id !== id);
+            saveToStorage();
+            renderFindings();
+            updatePDFButton();
+            showToast('Hallazgo eliminado', 'success');
+        }
+
+        // PDF Generation
+        async function generatePDF() {
+            const machineId = document.getElementById('machineId').value.trim();
+            
+            if (!machineId) {
+                showToast('Ingresa la identificación de la máquina', 'error');
+                document.getElementById('machineId').focus();
+                return;
+            }
+            
+            if (findings.length === 0) {
+                showToast('No hay hallazgos para generar el PDF', 'error');
+                return;
+            }
+            
+            const btn = document.getElementById('btnPDF');
+            const originalContent = btn.innerHTML;
+            btn.innerHTML = '<div class="loading-spinner"></div><span class="ml-2">Generando...</span>';
+            btn.disabled = true;
+            
+            try {
+                const { jsPDF } = window.jspdf;
+                const pdf = new jsPDF();
+                
+                // Header
+                pdf.setFillColor(102, 126, 234);
+                pdf.rect(0, 0, 210, 40, 'F');
+                
+                pdf.setTextColor(255, 255, 255);
+                pdf.setFontSize(24);
+                pdf.setFont('helvetica', 'bold');
+                pdf.text('INFORME DE INSPECCIÓN', 105, 25, { align: 'center' });
+                
+                // Info
+                pdf.setTextColor(60, 60, 60);
+                pdf.setFontSize(12);
+                pdf.setFont('helvetica', 'normal');
+                
+                const date = new Date().toLocaleDateString('es-ES', { 
+                    weekday: 'long', 
+                    year: 'numeric', 
+                    month: 'long', 
+                    day: 'numeric' 
+                });
+                
+                pdf.text(`Máquina: ${machineId}`, 20, 55);
+                pdf.text(`Tipo: ${inspectionType || 'No especificado'}`, 20, 62);
+                pdf.text(`Fecha: ${date}`, 20, 69);
+                pdf.text(`Total hallazgos: ${findings.length}`, 20, 76);
+                
+                let yPos = 90;
+                
+                for (let i = 0; i < findings.length; i++) {
+                    const f = findings[i];
+                    
+                    // Check page break
+                    if (yPos > 250) {
+                        pdf.addPage();
+                        yPos = 20;
+                    }
+                    
+                    // Finding number
+                    pdf.setFillColor(240, 240, 240);
+                    pdf.roundedRect(15, yPos - 5, 180, 8, 2, 2, 'F');
+                    pdf.setFont('helvetica', 'bold');
+                    pdf.setFontSize(11);
+                    pdf.setTextColor(102, 126, 234);
+                    pdf.text(`Hallazgo #${i + 1}`, 20, yPos);
+                    
+                    yPos += 12;
+                    
+                    // Description
+                    pdf.setTextColor(60, 60, 60);
+                    pdf.setFont('helvetica', 'normal');
+                    pdf.setFontSize(10);
+                    
+                    const splitDesc = pdf.splitTextToSize(f.description, 170);
+                    pdf.text(splitDesc, 20, yPos);
+                    yPos += splitDesc.length * 5 + 5;
+                    
+                    // Image
+                    try {
+                        const imgData = await getImageDimensions(f.image);
+                        const imgWidth = 80;
+                        const imgHeight = (imgData.height / imgData.width) * imgWidth;
+                        
+                        if (yPos + imgHeight > 280) {
+                            pdf.addPage();
+                            yPos = 20;
+                        }
+                        
+                        pdf.addImage(f.image, 'JPEG', 20, yPos, imgWidth, imgHeight);
+                        yPos += imgHeight + 10;
+                    } catch (e) {
+                        console.error('Error adding image:', e);
+                    }
+                    
+                    // Timestamp
+                    pdf.setFontSize(8);
+                    pdf.setTextColor(150, 150, 150);
+                    const fDate = new Date(f.timestamp).toLocaleString('es-ES');
+                    pdf.text(`Registrado: ${fDate}`, 20, yPos);
+                    
+                    yPos += 15;
+                }
+                
+                // Footer
+                const pageCount = pdf.internal.getNumberOfPages();
+                for (let i = 1; i <= pageCount; i++) {
+                    pdf.setPage(i);
+                    pdf.setFontSize(8);
+                    pdf.setTextColor(150, 150, 150);
+                    pdf.text(`Página ${i} de ${pageCount}`, 105, 290, { align: 'center' });
+                }
+                
+                const fileName = `Inspeccion_${machineId.replace(/\s+/g, '_')}_${Date.now()}.pdf`;
+                pdf.save(fileName);
+                
+                showToast('PDF descargado correctamente', 'success');
+                
+            } catch (error) {
+                console.error('PDF Error:', error);
+                showToast('Error al generar PDF: ' + error.message, 'error');
+            } finally {
+                btn.innerHTML = originalContent;
+                btn.disabled = false;
+            }
+        }
+
+        function getImageDimensions(src) {
+            return new Promise((resolve, reject) => {
+                const img = new Image();
+                img.onload = () => resolve({ width: img.width, height: img.height });
+                img.onerror = reject;
+                img.src = src;
+            });
+        }
+
+        // Utilities
+        function saveToStorage() {
+            localStorage.setItem('inspectionFindings', JSON.stringify(findings));
+        }
+
+        function updatePDFButton() {
+            const btn = document.getElementById('btnPDF');
+            const machineId = document.getElementById('machineId').value.trim();
+            btn.disabled = !machineId || findings.length === 0;
+        }
+
+        function clearAll() {
+            if (!confirm('¿Eliminar todos los hallazgos y datos? Esta acción no se puede deshacer.')) return;
+            
+            findings = [];
+            currentImage = null;
+            inspectionType = '';
+            
+            localStorage.removeItem('inspectionFindings');
+            localStorage.removeItem('inspectionType');
+            localStorage.removeItem('machineId');
+            
+            document.getElementById('machineId').value = '';
+            document.getElementById('description').value = '';
+            
+            document.querySelectorAll('.inspection-btn').forEach(btn => {
+                btn.classList.remove('border-blue-500', 'bg-blue-50', 'text-blue-700');
+                btn.classList.add('border-gray-200', 'text-gray-600');
+            });
+            
+            if (document.getElementById('cameraSection').classList.contains('hidden')) {
+                clearFile();
+            } else {
+                retakePhoto();
+            }
+            
+            renderFindings();
+            updatePDFButton();
+            showToast('Todos los datos han sido eliminados', 'success');
+        }
+
+        function showToast(message, type = 'info') {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.style.background = type === 'error' ? '#ef4444' : type === 'success' ? '#10b981' : '#333';
+            toast.classList.add('show');
+            
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Auto-save machine ID
+        document.getElementById('machineId').addEventListener('input', (e) => {
+            localStorage.setItem('machineId', e.target.value);
+            updatePDFButton();
+        });
+
+        // Service Worker for PWA
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('data:text/javascript,' + encodeURIComponent(`
+                self.addEventListener('install', e => self.skipWaiting());
+                self.addEventListener('activate', e => e.waitUntil(clients.claim()));
+                self.addEventListener('fetch', e => e.respondWith(fetch(e.request).catch(() => new Response('Offline'))));
+            `)).catch(() => {});
+        }
+    </script>
+</body>
+</html>
